@@ -189,7 +189,7 @@ QuickAdd uses runes everywhere, bans stores, routes console output through its l
 }
 ```
 
-In `.oxlintrc.syntax.json`, load the plugin under QuickAdd's existing prefix and replace the three custom-rule overrides. The Svelte internals guard runs on all of `src`. The store ban, the dispatcher ban, and the `$inspect` warning stay on shared `.svelte.ts` modules:
+In `.oxlintrc.syntax.json`, load the plugin under QuickAdd's existing prefix and rename its custom rules. The Svelte internals guard runs on every `.ts` file, tests included. The store ban, the dispatcher ban, and the `$inspect` warning stay on shared `.svelte.ts` modules:
 
 ```json
 {
@@ -197,14 +197,15 @@ In `.oxlintrc.syntax.json`, load the plugin under QuickAdd's existing prefix and
   "overrides": [
     {
       "files": ["src/**/*.ts"],
-      "rules": {
-        "quickadd/restricted-syntax": "error",
-        "quickadd/no-svelte-internal": "error"
-      }
+      "rules": { "quickadd/restricted-syntax": "error" }
     },
     {
       "files": ["src/**/*.test.ts"],
       "rules": { "quickadd/restricted-syntax": "off" }
+    },
+    {
+      "files": ["**/*.ts"],
+      "rules": { "quickadd/no-svelte-internal": "error" }
     },
     {
       "files": ["**/*.svelte.ts"],
