@@ -10,6 +10,12 @@ const check = (source: string) =>
     rule,
     message,
   }));
+const unused = (code: string, column = 1, line = 1) => ({
+  line,
+  column,
+  rule: "no-unused-svelte-ignore",
+  message: `Remove the unused svelte-ignore for ${code}.`,
+});
 
 describe("analysis", () => {
   it("compares else-if literals by type and value", () => {
@@ -55,5 +61,11 @@ describe("fixes to QuickAdd #2224", () => {
         '<!-- svelte-ignore a11y-autofocus, a11y-positive-tabindex --><input autofocus tabindex="1" />',
       ),
     ).toEqual([]);
+  });
+
+  it("recognizes a svelte-ignore followed by a newline", () => {
+    expect(check("<!-- svelte-ignore\n  a11y_autofocus --><p>X</p>")).toEqual([
+      unused("a11y_autofocus"),
+    ]);
   });
 });

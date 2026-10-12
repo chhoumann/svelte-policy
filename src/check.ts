@@ -62,7 +62,7 @@ function isCompileError(error: unknown): error is CompileError {
   return error instanceof Error && error.name === "CompileError";
 }
 
-const suppressionPrefix = /^\s*svelte-ignore /;
+const suppressionPrefix = /^\s*svelte-ignore(?=\s|$)/;
 
 /** The codes a svelte-ignore comment names. Text from `(` on is a reason. */
 function suppressedCodes(text: string): string[] {
