@@ -10,7 +10,7 @@ export interface Config {
       ? Severity | { readonly severity: Severity; readonly message: string }
       : Severity;
   };
-  /** Selectors reported under `restricted-syntax` in components. */
+  /** Selectors reported under `restricted-syntax`, in components and by the oxlint plugin. */
   readonly restrictedSyntax?: readonly Selector[];
 }
 

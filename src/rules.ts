@@ -8,13 +8,13 @@ export interface Selector {
 
 interface RuleSpec {
   readonly severity: Severity;
-  /** Present on the rules that are selector lists. */
+  /** Present on the rules that are selector lists; exactly these are also oxlint rules. */
   readonly selectors?: readonly Selector[];
 }
 
 /**
  * Every rule, its default severity, and the built-in selectors of the selector rules. Rule ids
- * in svelte-policy.json and in diagnostics come from this table.
+ * in svelte-policy.json, in diagnostics, and in the oxlint plugin all come from this table.
  */
 export const rules = {
   /** The consumer's `restrictedSyntax` selectors. */

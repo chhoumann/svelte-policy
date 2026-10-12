@@ -9,7 +9,7 @@ export default defineConfig({
     dts: {
       resolver: "tsc",
     },
-    entry: ["src/index.ts"],
+    entry: ["src/index.ts", "src/oxlint.ts"],
     exports: false,
     fixedExtension: true,
     format: ["esm"],
@@ -24,6 +24,7 @@ export default defineConfig({
     },
   },
   test: {
+    globalSetup: ["tests/pack.ts"],
     include: ["tests/**/*.test.ts"],
   },
 });
