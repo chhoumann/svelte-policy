@@ -288,7 +288,7 @@ function checkTree(root: AST.Root, policy: Policy, report: Reporter): void {
           }
           break;
         case "ExpressionTag":
-          if (path.at(-1)?.type === "Fragment" && objectLiterals.has(node.expression.type)) {
+          if (isInterpolated(path.at(-1)) && objectLiterals.has(node.expression.type)) {
             report(
               node,
               "no-object-in-text-mustaches",
@@ -425,6 +425,16 @@ function keyReferencesItem(key: Expression, scopes: Scopes): boolean {
     },
   });
   return found;
+}
+
+/** Text mustaches, and mustaches in an attribute value with more than one part. */
+function isInterpolated(parent: AST.SvelteNode | undefined): boolean {
+  if (parent?.type === "Fragment") return true;
+  return (
+    (parent?.type === "Attribute" || parent?.type === "StyleDirective") &&
+    Array.isArray(parent.value) &&
+    parent.value.length > 1
+  );
 }
 
 /** The static name of `a.b` or `a["b"]`; undefined for anything computed. */

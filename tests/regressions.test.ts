@@ -133,4 +133,15 @@ describe("fixes to QuickAdd #2224", () => {
       ]);
     });
   });
+
+  it("reports an object literal in an attribute value with more than one part", () => {
+    expect(check('<p title="x {{a: 1}}" data-a="{{b: 2}}" data-b={{c: 3}}>X</p>')).toEqual([
+      {
+        line: 1,
+        column: 13,
+        rule: "no-object-in-text-mustaches",
+        message: "Interpolate a display value instead of an object or function.",
+      },
+    ]);
+  });
 });
