@@ -7,18 +7,7 @@ import type { Policy } from "./config";
 import type { RuleId } from "./rules";
 import { buildScopes, isReference, isTypeOnly, type Scope, type Scopes } from "./scope";
 import { replacements, runtimeWarnings } from "./svelte-codes";
-
-export interface Diagnostic {
-  readonly filename: string;
-  /** 1-based. */
-  readonly line: number;
-  /** 1-based. */
-  readonly column: number;
-  /** The rule id, or the compiler's error code when the component does not parse. */
-  readonly rule: string;
-  readonly message: string;
-  readonly severity: "error" | "warning";
-}
+import type { Diagnostic } from "./types";
 
 interface Range {
   readonly start: number;

@@ -1,6 +1,7 @@
 import { dirname, resolve } from "node:path";
-import { check, type Diagnostic } from "./check";
-import { policyFor, resolvePolicy, type Config } from "./config";
+import { check } from "./check";
+import { policyFor, resolvePolicy } from "./config";
+import type { Config, Diagnostic } from "./types";
 
 export type { Config, Diagnostic };
 

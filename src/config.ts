@@ -11,17 +11,6 @@ import {
   type Severity,
 } from "./rules";
 
-/** The shape of svelte-policy.json. */
-export interface Config {
-  readonly rules?: {
-    readonly [Id in RuleId]?: Id extends "no-console"
-      ? Severity | { readonly severity: Severity; readonly message: string }
-      : Severity;
-  };
-  /** Selectors reported under `restricted-syntax`, in components and by the oxlint plugin. */
-  readonly restrictedSyntax?: readonly Selector[];
-}
-
 /** A parsed selector of a selector rule, with the message reported where it matches. */
 export interface RuleQuery {
   readonly rule: SelectorRuleId;
