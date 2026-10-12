@@ -247,7 +247,6 @@ Add the rule to the existing `src/**/*.ts` override rather than a new one. Oxlin
 
 ## Known limitations
 
-- `no-unused-svelte-ignore` compares comments with the compiler's warnings. A comment that suppresses a runtime-only warning, such as `state_snapshot_uncloneable`, is reported as unused.
 - `no-unused-svelte-ignore` reads a comment's codes in the mode the compiler infers from the component, not from `compilerOptions.runes` in your Svelte config. A component that your config forces into runes mode but that uses no runes is read as a legacy component.
 - `no-dom-manipulating` follows the name bound with `bind:this`, not aliases of it.
 - `valid-each-key` checks that the key uses the item or index. It does not prove that keys are unique.

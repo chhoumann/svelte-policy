@@ -159,6 +159,17 @@ describe("fixes to QuickAdd #2224", () => {
     });
   });
 
+  it("counts a svelte-ignore for a runtime-only warning as used when it applies to a node", () => {
+    expect(
+      check(
+        "<script>\nlet s = $state({});\n// svelte-ignore state_snapshot_uncloneable\nconst copy = $state.snapshot(s);\n</script>{copy}",
+      ),
+    ).toEqual([]);
+    expect(check("<p>X</p><!-- svelte-ignore hydration_html_changed -->")).toEqual([
+      unused("hydration_html_changed", 9),
+    ]);
+  });
+
   it("reports an object literal in an attribute value with more than one part", () => {
     expect(check('<p title="x {{a: 1}}" data-a="{{b: 2}}" data-b={{c: 3}}>X</p>')).toEqual([
       {

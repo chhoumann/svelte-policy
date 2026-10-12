@@ -6,7 +6,7 @@ import { coveredByEarlierBranch } from "./conditions";
 import type { Policy } from "./config";
 import { rules, selectorRuleIds, type RuleId, type SelectorRuleId } from "./rules";
 import { buildScopes, isReference, isTypeOnly, type Scope, type Scopes } from "./scope";
-import { replacements } from "./svelte-codes";
+import { replacements, runtimeWarnings } from "./svelte-codes";
 
 export interface Diagnostic {
   readonly filename: string;
@@ -102,8 +102,9 @@ interface Suppression {
 
 /**
  * no-unused-svelte-ignore. Blank every svelte-ignore comment, compile, and report each code with
- * no matching warning inside the comment's target. The compile leaves `runes` unset, so the
- * compiler infers the mode and legacy components are checked too.
+ * no matching warning inside the comment's target. A runtime-only code counts as used wherever
+ * the comment has a target. The compile leaves `runes` unset, so the compiler infers the mode and
+ * legacy components are checked too.
  */
 function checkIgnores(root: AST.Root, source: string, filename: string, report: Reporter): void {
   const suppressions: Suppression[] = [];
@@ -165,15 +166,17 @@ function checkIgnores(root: AST.Root, source: string, filename: string, report: 
   for (const { comment, text, target } of suppressions) {
     for (const code of suppressedCodes(text, runes)) {
       const suppressed = suppressedWarnings(code, runes);
-      const warned = result.warnings.some(
-        (warning) =>
-          suppressed.includes(warning.code) &&
-          target !== undefined &&
-          warning.start !== undefined &&
-          warning.start.character >= target.start &&
-          warning.start.character < target.end,
-      );
-      if (!warned) {
+      const used =
+        target !== undefined &&
+        (suppressed.some((warning) => runtimeWarnings.has(warning)) ||
+          result.warnings.some(
+            (warning) =>
+              suppressed.includes(warning.code) &&
+              warning.start !== undefined &&
+              warning.start.character >= target.start &&
+              warning.start.character < target.end,
+          ));
+      if (!used) {
         report(comment, "no-unused-svelte-ignore", `Remove the unused svelte-ignore for ${code}.`);
       }
     }
