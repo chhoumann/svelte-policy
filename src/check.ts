@@ -437,11 +437,14 @@ function isInterpolated(parent: AST.SvelteNode | undefined): boolean {
   );
 }
 
-/** The static name of `a.b` or `a["b"]`; undefined for anything computed. */
+/** The static name of `a.b`, `a["b"]`, or ``a[`b`]``; undefined for anything computed. */
 function propertyName(node: MemberExpression): string | undefined {
   const { property } = node;
   if (!node.computed) return property.type === "Identifier" ? property.name : undefined;
   if (property.type === "Literal" && typeof property.value === "string") return property.value;
+  if (property.type === "TemplateLiteral" && property.expressions.length === 0) {
+    return property.quasis[0]?.value.cooked ?? undefined;
+  }
   return undefined;
 }
 

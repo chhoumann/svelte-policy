@@ -148,4 +148,19 @@ describe("fixes to QuickAdd #2224", () => {
   it("does not require a key on an each block without an item", () => {
     expect(check("{#each {length: 3}}<p>X</p>{/each}")).toEqual([]);
   });
+
+  it("resolves member names written as backtick strings", () => {
+    expect(
+      rulesOf("<button onclick={() => window[`setTimeout`]('alert(1)', 1)}>X</button>"),
+    ).toEqual(["no-implied-eval"]);
+    expect(
+      rulesOf(
+        "<script>let el; function clear() { el[`remove`](); }</script><div bind:this={el}></div>",
+      ),
+    ).toEqual(["no-dom-manipulating"]);
+    expect(rulesOf("<button onclick={() => console[`warn`]('X')}>X</button>")).toEqual([]);
+    expect(
+      rulesOf("<button onclick={() => window[`set${'Timeout'}`]('alert(1)', 1)}>X</button>"),
+    ).toEqual([]);
+  });
 });
