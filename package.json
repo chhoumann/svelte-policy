@@ -1,6 +1,6 @@
 {
   "name": "svelte-policy",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Svelte component policies checked on the compiler's AST, with an oxlint plugin that shares one config.",
   "keywords": [
     "lint",
