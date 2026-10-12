@@ -117,4 +117,20 @@ describe("fixes to QuickAdd #2224", () => {
       unused("state_referenced_locally", 3, 9),
     ]);
   });
+
+  describe("reads svelte-ignore codes as Svelte reads them", () => {
+    it("treats words after the code list as prose in runes mode", () => {
+      expect(
+        check(
+          "<script>let n = $state(0);</script><!-- svelte-ignore a11y_autofocus because the dialog opens on demand --><input autofocus value={n} />",
+        ),
+      ).toEqual([]);
+    });
+
+    it("reads every word as a code in legacy mode", () => {
+      expect(check("<!-- svelte-ignore a11y_autofocus focus --><input autofocus />")).toEqual([
+        unused("focus"),
+      ]);
+    });
+  });
 });

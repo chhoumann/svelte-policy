@@ -64,15 +64,24 @@ function isCompileError(error: unknown): error is CompileError {
 
 const suppressionPrefix = /^\s*svelte-ignore(?=\s|$)/;
 
-/** The codes a svelte-ignore comment names. Text from `(` on is a reason. */
-function suppressedCodes(text: string): string[] {
+/**
+ * The codes a svelte-ignore comment names, read the way Svelte reads them: in runes mode a
+ * comma-separated list followed by prose, otherwise every word. Text from `(` on is a reason.
+ */
+function suppressedCodes(text: string, runes: boolean): string[] {
   const list = text.replace(suppressionPrefix, "").split("(")[0] ?? "";
-  return list.match(/[\w$-]+/g) ?? [];
+  if (!runes) return list.match(/[\w$-]+/g) ?? [];
+  const codes: string[] = [];
+  for (const [, code = "", comma] of list.matchAll(/([\w$-]+)(,)?/g)) {
+    codes.push(code);
+    if (!comma) break;
+  }
+  return codes;
 }
 
-/** Whether a svelte-ignore comment names at least one code. */
+/** Either mode reads at least one code from a comment with at least one word. */
 function namesCode(text: string): boolean {
-  return suppressedCodes(text).length > 0;
+  return suppressedCodes(text, false).length > 0;
 }
 
 interface Suppression {
@@ -145,7 +154,7 @@ function checkIgnores(root: AST.Root, source: string, filename: string, report: 
     throw error;
   }
   for (const { comment, text, target } of suppressions) {
-    for (const code of suppressedCodes(text)) {
+    for (const code of suppressedCodes(text, result.metadata.runes)) {
       const warned = result.warnings.some(
         (warning) =>
           warning.code === code.replaceAll("-", "_") &&
