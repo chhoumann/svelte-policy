@@ -421,4 +421,56 @@ describe("fixes to QuickAdd #2224", () => {
       ]);
     });
   });
+
+  describe("does not let a type-only declaration shadow a global", () => {
+    const uses = 'console.log("x"); new Function("return 1"); setTimeout("work()", 1);';
+
+    it.each([
+      ["a type-only import", 'import type { console, Function, setTimeout } from "./types";'],
+      [
+        "type-only specifiers",
+        'import { type console, type Function, type setTimeout } from "./types";',
+      ],
+      [
+        "a type-only default import",
+        'import type console from "./console"; import type { Function, setTimeout } from "./types";',
+      ],
+      [
+        "declare forms",
+        "declare const console: Console; declare class Function { constructor(code: string); } declare let setTimeout: (code: string, ms: number) => void;",
+      ],
+      ["a type alias and an interface", "type console = Console; interface Function {}"],
+    ])("in a script after %s", (_name, declarations) => {
+      expect(rulesOf(`<script lang="ts">${declarations} ${uses}</script>`)).toEqual([
+        "no-console",
+        "no-new-func",
+        "no-implied-eval",
+      ]);
+    });
+
+    it.each([
+      ["a type-only import", 'import type { console } from "./types";'],
+      ["a type-only specifier", 'import { type console } from "./types";'],
+      ["a declared const", "declare const console: Console;"],
+    ])("in a template handler after %s", (_name, declarations) => {
+      expect(
+        rulesOf(
+          `<script lang="ts">${declarations}</script><button onclick={() => console.log("x")}>X</button>`,
+        ),
+      ).toEqual(["no-console"]);
+    });
+
+    it("lets value imports shadow a global", () => {
+      expect(
+        rulesOf(
+          `<script lang="ts">import { console, Function, setTimeout } from "./runtime"; ${uses}</script><button onclick={() => console.log("x")}>X</button>`,
+        ),
+      ).toEqual([]);
+      expect(
+        rulesOf(
+          `<script lang="ts">import { type console, Function } from "./runtime"; ${uses}</script>`,
+        ),
+      ).toEqual(["no-console", "no-implied-eval"]);
+    });
+  });
 });

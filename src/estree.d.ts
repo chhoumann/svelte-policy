@@ -24,4 +24,18 @@ declare module "estree" {
     TSNonNullExpression: TypeScriptValue<"TSNonNullExpression">;
     TSTypeAssertion: TypeScriptValue<"TSTypeAssertion">;
   }
+
+  // acorn-typescript marks the imports and declarations that exist only for the type checker.
+  interface ImportDeclaration {
+    importKind?: "type" | "value";
+  }
+  interface ImportSpecifier {
+    importKind?: "type" | "value";
+  }
+  interface VariableDeclaration {
+    declare?: boolean;
+  }
+  interface ClassDeclaration {
+    declare?: boolean;
+  }
 }

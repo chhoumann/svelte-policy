@@ -127,20 +127,26 @@ export function buildScopes(root: AST.Root): Scopes {
       Fragment(node, { state, next }) {
         next({ scope: letScopes.get(node) ?? state.scope.child() });
       },
+      // Type-only imports and `declare` forms bind nothing at runtime, so they shadow no global.
       ImportDeclaration(node, { state, next }) {
         for (const specifier of node.specifiers) {
-          state.scope.declare(specifier.local.name);
+          const typeOnly =
+            node.importKind === "type" ||
+            (specifier.type === "ImportSpecifier" && specifier.importKind === "type");
+          if (!typeOnly) state.scope.declare(specifier.local.name);
         }
         next();
       },
       VariableDeclaration(node, { state, next }) {
-        for (const declarator of node.declarations) {
-          if (node.kind === "var") {
-            for (const name of patternNames(declarator.id)) state.scope.declareVar(name);
-          } else if (node.kind === "const" && declarator.id.type === "Identifier") {
-            state.scope.declare(declarator.id.name, declarator.init ?? null);
-          } else {
-            declare(state.scope, declarator.id);
+        if (!node.declare) {
+          for (const declarator of node.declarations) {
+            if (node.kind === "var") {
+              for (const name of patternNames(declarator.id)) state.scope.declareVar(name);
+            } else if (node.kind === "const" && declarator.id.type === "Identifier") {
+              state.scope.declare(declarator.id.name, declarator.init ?? null);
+            } else {
+              declare(state.scope, declarator.id);
+            }
           }
         }
         next();
@@ -161,7 +167,7 @@ export function buildScopes(root: AST.Root): Scopes {
         next({ scope: state.scope.child(isFunction(parent) && parent.body === node) });
       },
       ClassDeclaration(node, { state, next }) {
-        if (node.id) state.scope.declare(node.id.name);
+        if (node.id && !node.declare) state.scope.declare(node.id.name);
         next();
       },
       ClassExpression(node, { state, next }) {
