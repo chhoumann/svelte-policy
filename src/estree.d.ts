@@ -11,4 +11,17 @@ declare module "estree" {
     start: number;
     end: number;
   }
+
+  // In `lang="ts"` components, acorn-typescript keeps these around values. Svelte strips them, so
+  // each evaluates to its `expression`.
+  interface TypeScriptValue<Type extends string> extends BaseExpression {
+    type: Type;
+    expression: Expression;
+  }
+  interface ExpressionMap {
+    TSAsExpression: TypeScriptValue<"TSAsExpression">;
+    TSSatisfiesExpression: TypeScriptValue<"TSSatisfiesExpression">;
+    TSNonNullExpression: TypeScriptValue<"TSNonNullExpression">;
+    TSTypeAssertion: TypeScriptValue<"TSTypeAssertion">;
+  }
 }

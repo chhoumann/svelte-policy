@@ -5,26 +5,13 @@ import type {
   FunctionExpression,
   Identifier,
   Node,
-  VariableDeclaration,
 } from "estree";
 import type { AST } from "svelte/compiler";
 import { walk } from "zimmerframe";
 
-/** How a name was declared. A `const` keeps its initializer when it binds the name directly. */
-export type Binding =
-  | { readonly kind: "const"; readonly init: Expression | null }
-  | {
-      readonly kind:
-        | Exclude<VariableDeclaration["kind"], "const">
-        | "function"
-        | "class"
-        | "import"
-        | "parameter"
-        | "template";
-    };
-
 export class Scope {
-  readonly #bindings = new Map<string, Binding>();
+  /** Each declared name, with the initializer of the `const` that binds it directly, if one does. */
+  readonly #bindings = new Map<string, Expression | null>();
 
   constructor(
     readonly parent: Scope | undefined,
@@ -36,12 +23,12 @@ export class Scope {
     return new Scope(this, isVarTarget);
   }
 
-  declare(name: string, binding: Binding): void {
-    this.#bindings.set(name, binding);
+  declare(name: string, constInit: Expression | null = null): void {
+    this.#bindings.set(name, constInit);
   }
 
   declareVar(name: string): void {
-    if (this.isVarTarget || !this.parent) this.declare(name, { kind: "var" });
+    if (this.isVarTarget || !this.parent) this.declare(name);
     else this.parent.declareVar(name);
   }
 
@@ -50,10 +37,10 @@ export class Scope {
     return this.#bindings.has(name) ? this : this.parent?.owner(name);
   }
 
-  /** The binding `name` resolves to, or undefined when `name` is a global. */
-  lookup(name: string): Binding | undefined {
+  /** The initializer of the `const` that `name` resolves to, when that `const` binds it directly. */
+  constInit(name: string): Expression | null {
     const owner = this.owner(name);
-    return owner && owner.#bindings.get(name);
+    return (owner && owner.#bindings.get(name)) ?? null;
   }
 }
 
@@ -93,16 +80,16 @@ export function buildScopes(root: AST.Root): Scopes {
   const module = new Scope(undefined, true);
   const instance = module.child(true);
 
-  const declare = (scope: Scope, pattern: Node | null, binding: Binding) => {
-    for (const name of patternNames(pattern)) scope.declare(name, binding);
+  const declare = (scope: Scope, pattern: Node | null) => {
+    for (const name of patternNames(pattern)) scope.declare(name);
   };
 
   function enterFunction(node: FunctionNode, scope: Scope, next: (state: State) => void): void {
     const params = scope.child();
     if (node.type === "FunctionExpression" && node.id) {
-      params.declare(node.id.name, { kind: "function" });
+      params.declare(node.id.name);
     }
-    for (const param of node.params) declare(params, param, { kind: "parameter" });
+    for (const param of node.params) declare(params, param);
     next({ scope: params });
   }
 
@@ -117,8 +104,8 @@ export function buildScopes(root: AST.Root): Scopes {
           for (const attribute of node.attributes) {
             if (attribute.type !== "LetDirective") continue;
             scope ??= state.scope.child();
-            if (attribute.expression) declare(scope, attribute.expression, { kind: "template" });
-            else scope.declare(attribute.name, { kind: "template" });
+            if (attribute.expression) declare(scope, attribute.expression);
+            else scope.declare(attribute.name);
           }
         }
         // A component's `let:` names belong to its default slot, so they reach only its
@@ -142,7 +129,7 @@ export function buildScopes(root: AST.Root): Scopes {
       },
       ImportDeclaration(node, { state, next }) {
         for (const specifier of node.specifiers) {
-          state.scope.declare(specifier.local.name, { kind: "import" });
+          state.scope.declare(specifier.local.name);
         }
         next();
       },
@@ -150,17 +137,16 @@ export function buildScopes(root: AST.Root): Scopes {
         for (const declarator of node.declarations) {
           if (node.kind === "var") {
             for (const name of patternNames(declarator.id)) state.scope.declareVar(name);
-          } else if (node.kind === "const") {
-            const init = declarator.id.type === "Identifier" ? (declarator.init ?? null) : null;
-            declare(state.scope, declarator.id, { kind: "const", init });
+          } else if (node.kind === "const" && declarator.id.type === "Identifier") {
+            state.scope.declare(declarator.id.name, declarator.init ?? null);
           } else {
-            declare(state.scope, declarator.id, { kind: node.kind });
+            declare(state.scope, declarator.id);
           }
         }
         next();
       },
       FunctionDeclaration(node, { state, next }) {
-        if (node.id) state.scope.declare(node.id.name, { kind: "function" });
+        if (node.id) state.scope.declare(node.id.name);
         enterFunction(node, state.scope, next);
       },
       FunctionExpression(node, { state, next }) {
@@ -175,7 +161,7 @@ export function buildScopes(root: AST.Root): Scopes {
         next({ scope: state.scope.child(isFunction(parent) && parent.body === node) });
       },
       ClassDeclaration(node, { state, next }) {
-        if (node.id) state.scope.declare(node.id.name, { kind: "class" });
+        if (node.id) state.scope.declare(node.id.name);
         next();
       },
       ClassExpression(node, { state, next }) {
@@ -184,7 +170,7 @@ export function buildScopes(root: AST.Root): Scopes {
           return;
         }
         const scope = state.scope.child();
-        scope.declare(node.id.name, { kind: "class" });
+        scope.declare(node.id.name);
         next({ scope });
       },
       StaticBlock(_node, { state, next }) {
@@ -206,14 +192,14 @@ export function buildScopes(root: AST.Root): Scopes {
       },
       CatchClause(node, { state, next }) {
         const scope = state.scope.child();
-        declare(scope, node.param, { kind: "parameter" });
+        declare(scope, node.param);
         next({ scope });
       },
       EachBlock(node, { state, visit }) {
         visit(node.expression, state);
         const scope = state.scope.child();
-        declare(scope, node.context, { kind: "template" });
-        if (node.index) scope.declare(node.index, { kind: "template" });
+        declare(scope, node.context);
+        if (node.index) scope.declare(node.index);
         if (node.context) visit(node.context, { scope });
         if (node.key) visit(node.key, { scope });
         visit(node.body, { scope });
@@ -227,17 +213,17 @@ export function buildScopes(root: AST.Root): Scopes {
           [node.error, node.catch],
         ] as const) {
           const scope = state.scope.child();
-          declare(scope, pattern, { kind: "template" });
+          declare(scope, pattern);
           if (pattern) visit(pattern, { scope });
           if (branch) visit(branch, { scope });
         }
       },
       SnippetBlock(node, { state, visit }) {
-        state.scope.declare(node.expression.name, { kind: "template" });
+        state.scope.declare(node.expression.name);
         visit(node.expression, state);
         const scope = state.scope.child();
         for (const parameter of node.parameters) {
-          declare(scope, parameter, { kind: "template" });
+          declare(scope, parameter);
           visit(parameter, { scope });
         }
         visit(node.body, { scope });

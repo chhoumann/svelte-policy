@@ -449,13 +449,13 @@ function fingerprint(node: Expression | null): string {
 
 /** Report a handler that is not a function, following a name through `const` initializers. */
 function checkHandler(expression: Expression, scopes: Scopes, report: Reporter): void {
-  let value = expression;
+  let value = withoutTypeScript(expression);
   const seen = new Set<Expression>();
   while (value.type === "Identifier" && !seen.has(value)) {
     seen.add(value);
-    const binding = scopes.of(value).lookup(value.name);
-    if (binding?.kind !== "const" || binding.init === null) break;
-    value = binding.init;
+    const init = scopes.of(value).constInit(value.name);
+    if (init === null) break;
+    value = withoutTypeScript(init);
   }
   const notFunction =
     value.type === "ObjectExpression" ||
@@ -466,6 +466,20 @@ function checkHandler(expression: Expression, scopes: Scopes, report: Reporter):
   if (notFunction) {
     report(expression, "no-not-function-handler", "Pass a function as the event handler.");
   }
+}
+
+/** The value inside TypeScript's `as`, `satisfies`, `!`, and `<T>` wrappers. */
+function withoutTypeScript(expression: Expression): Expression {
+  let value = expression;
+  while (
+    value.type === "TSAsExpression" ||
+    value.type === "TSSatisfiesExpression" ||
+    value.type === "TSNonNullExpression" ||
+    value.type === "TSTypeAssertion"
+  ) {
+    value = value.expression;
+  }
+  return value;
 }
 
 /** Whether some reference in the key resolves to the each block's own item or index. */

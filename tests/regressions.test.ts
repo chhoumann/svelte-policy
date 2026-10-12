@@ -235,12 +235,32 @@ describe("fixes to QuickAdd #2224", () => {
         "<script module>const handler = 'x';</script><script>let n = $state(0);</script><button onclick={handler}>{n}</button>",
       ],
       ["an @const", "{#if ready}{@const handler = 42}<button onclick={handler}>X</button>{/if}"],
+      [
+        "a const behind TypeScript assertions",
+        '<script lang="ts">const handler = 42 as unknown as () => void;</script><button onclick={handler}>X</button>',
+      ],
+      [
+        "an as const literal",
+        '<script lang="ts">const handler = 42 as const;</script><button onclick={handler}>X</button>',
+      ],
+      [
+        "a non-null const of a const",
+        '<script lang="ts">const value = "x"; const handler = value!;</script><button onclick={handler}>X</button>',
+      ],
+      [
+        "a satisfies expression",
+        '<script lang="ts"></script><button onclick={"x" satisfies string}>X</button>',
+      ],
     ])("reports %s", (_name, source) => {
       expect(rulesOf(source)).toEqual(["no-not-function-handler"]);
     });
 
     it.each([
       ["a function", "<button onclick={() => {}}>X</button>"],
+      [
+        "a function behind a TypeScript assertion",
+        '<script lang="ts">const handler = (() => {}) as unknown as () => void;</script><button onclick={handler}>X</button>',
+      ],
       ["null", "<button onclick={null}>X</button>"],
       ["undefined", "<button onclick={undefined}>X</button>"],
       ["a let", "<script>let handler = 42;</script><button onclick={handler}>X</button>"],
