@@ -16,29 +16,39 @@ function literalKey(node: Literal): string {
 }
 
 /**
- * A key for a condition built from identifiers, literals, `!`, `&&`, `||`, `===`, and `!==`, with
- * logical operands sorted. Null when a part could change between branch evaluations: calls,
- * property reads, assignments, and coercing operators.
+ * How a node's result is used. A condition needs only its truthiness, so logical operands can be
+ * reordered. A value is compared with `===` or `!==`, and a logical's value is the operand it
+ * returns, so their order matters.
  */
-function canonical(node: Expression | PrivateIdentifier): string | null {
+type Position = "condition" | "value";
+
+/**
+ * A key for an expression built from identifiers, literals, `!`, `&&`, `||`, `===`, and `!==`,
+ * with logical operands sorted in a condition. Null when a part could change between branch
+ * evaluations: calls, property reads, assignments, and coercing operators.
+ */
+function canonical(node: Expression | PrivateIdentifier, position: Position): string | null {
   switch (node.type) {
     case "Identifier":
       return node.name;
     case "Literal":
       return literalKey(node);
     case "UnaryExpression": {
-      const argument = node.operator === "!" ? canonical(node.argument) : null;
+      const argument = node.operator === "!" ? canonical(node.argument, "condition") : null;
       return argument === null ? null : `!${argument}`;
     }
     case "BinaryExpression": {
       if (node.operator !== "===" && node.operator !== "!==") return null;
-      const left = canonical(node.left);
-      const right = canonical(node.right);
+      const left = canonical(node.left, "value");
+      const right = canonical(node.right, "value");
       return left === null || right === null ? null : `(${left} ${node.operator} ${right})`;
     }
     case "LogicalExpression": {
-      const parts = node.operator === "??" ? null : keys(operands(node, node.operator));
-      return parts && `(${parts.toSorted(byCodeUnit).join(` ${node.operator} `)})`;
+      if (node.operator === "??") return null;
+      const parts = keys(operands(node, node.operator), position);
+      if (parts === null) return null;
+      if (position === "condition") parts.sort(byCodeUnit);
+      return `(${parts.join(` ${node.operator} `)})`;
     }
     default:
       return null;
@@ -46,10 +56,10 @@ function canonical(node: Expression | PrivateIdentifier): string | null {
 }
 
 /** The keys of every node, or null when one is unstable. */
-function keys(nodes: Expression[]): string[] | null {
+function keys(nodes: Expression[], position: Position): string[] | null {
   const result: string[] = [];
   for (const node of nodes) {
-    const key = canonical(node);
+    const key = canonical(node, position);
     if (key === null) return null;
     result.push(key);
   }
@@ -62,7 +72,7 @@ const byCodeUnit = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 function alternatives(test: Expression): string[][] | null {
   const terms: string[][] = [];
   for (const term of operands(test, "||")) {
-    const parts = keys(operands(term, "&&"));
+    const parts = keys(operands(term, "&&"), "condition");
     if (parts === null) return null;
     terms.push(parts);
   }

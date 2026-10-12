@@ -29,6 +29,19 @@ describe("analysis", () => {
     expect(rulesOf("{#if v === 1}A{:else if v === '1'}B{/if}")).toEqual([]);
   });
 
+  it("reorders logical operands only where just their truthiness is read", () => {
+    expect(rulesOf("{#if (a || b) === b}A{:else if (b || a) === b}B{/if}")).toEqual([]);
+    expect(rulesOf("{#if (a || b) === b}A{:else if (a || b) === b}B{/if}")).toEqual([
+      "no-dupe-else-if-blocks",
+    ]);
+    expect(rulesOf("{#if (a || b) && c}A{:else if (b || a) && c}B{/if}")).toEqual([
+      "no-dupe-else-if-blocks",
+    ]);
+    expect(rulesOf("{#if !(a && b)}A{:else if !(b && a)}B{/if}")).toEqual([
+      "no-dupe-else-if-blocks",
+    ]);
+  });
+
   it("skips an else-if chain whose test has an unstable part", () => {
     expect(rulesOf("{#if a}A{:else if a && next()}B{/if}")).toEqual([]);
   });
