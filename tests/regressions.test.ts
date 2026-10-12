@@ -144,4 +144,8 @@ describe("fixes to QuickAdd #2224", () => {
       },
     ]);
   });
+
+  it("does not require a key on an each block without an item", () => {
+    expect(check("{#each {length: 3}}<p>X</p>{/each}")).toEqual([]);
+  });
 });

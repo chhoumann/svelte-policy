@@ -269,7 +269,7 @@ function checkTree(root: AST.Root, policy: Policy, report: Reporter): void {
           break;
         case "EachBlock":
           if (!node.key) {
-            report(node, "require-each-key", "Give each block a stable key.");
+            if (node.context) report(node, "require-each-key", "Give each block a stable key.");
           } else if (!keyReferencesItem(node.key, scopes)) {
             report(
               node.key,
