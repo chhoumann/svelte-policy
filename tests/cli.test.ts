@@ -80,8 +80,14 @@ it("exits 2 without a summary on a config error", () => {
 
 it("exits 2 on a missing path or an option", () => {
   const root = project({ "src/Clean.svelte": "<p>X</p>" });
-  expect(run(root, "missing")).toMatchObject({ status: 2, stdout: "" });
-  expect(run(root, "missing").stderr).toMatch(/^svelte-policy: ENOENT: no such file or directory/);
-  expect(run(root, "--fix")).toMatchObject({ status: 2, stdout: "" });
-  expect(run(root, "--fix").stderr).toMatch(/^svelte-policy: Unknown option '--fix'/);
+  expect(run(root, "missing")).toEqual({
+    status: 2,
+    stdout: "",
+    stderr: expect.stringMatching(/^svelte-policy: ENOENT: no such file or directory/),
+  });
+  expect(run(root, "--fix")).toEqual({
+    status: 2,
+    stdout: "",
+    stderr: expect.stringMatching(/^svelte-policy: Unknown option '--fix'/),
+  });
 });
