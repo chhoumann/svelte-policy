@@ -79,7 +79,8 @@ interface Suppression {
 
 /**
  * no-unused-svelte-ignore. Blank every svelte-ignore comment, compile, and report each code with
- * no matching warning inside the comment's target.
+ * no matching warning inside the comment's target. The compile leaves `runes` unset, so the
+ * compiler infers the mode and legacy components are checked too.
  */
 function checkIgnores(root: AST.Root, source: string, filename: string, report: Reporter): void {
   const suppressions: Suppression[] = [];
@@ -114,7 +115,7 @@ function checkIgnores(root: AST.Root, source: string, filename: string, report: 
   }
   let result: ReturnType<typeof compile>;
   try {
-    result = compile(unsuppressed, { filename, runes: true, generate: false });
+    result = compile(unsuppressed, { filename, generate: false });
   } catch (error) {
     // svelte-check reports compiler errors; there is nothing to compare against.
     if (isCompileError(error)) return;

@@ -68,4 +68,10 @@ describe("fixes to QuickAdd #2224", () => {
       unused("a11y_autofocus"),
     ]);
   });
+
+  it("checks svelte-ignore comments in legacy components", () => {
+    expect(
+      check("<script>export let x;</script><!-- svelte-ignore a11y_autofocus --><p>{x}</p>"),
+    ).toEqual([unused("a11y_autofocus", 31)]);
+  });
 });
