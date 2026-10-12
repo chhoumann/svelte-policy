@@ -70,6 +70,11 @@ function suppressedCodes(text: string): string[] {
   return list.match(/[\w$-]+/g) ?? [];
 }
 
+/** Whether a svelte-ignore comment names at least one code. */
+function namesCode(text: string): boolean {
+  return suppressedCodes(text).length > 0;
+}
+
 interface Suppression {
   readonly comment: Range;
   readonly text: string;
@@ -104,7 +109,16 @@ function checkIgnores(root: AST.Root, source: string, filename: string, report: 
     },
   });
 
-  if (suppressions.length === 0) return;
+  for (const { comment, text } of suppressions) {
+    if (!namesCode(text)) {
+      report(
+        comment,
+        "no-unused-svelte-ignore",
+        "Name the warning code this svelte-ignore suppresses.",
+      );
+    }
+  }
+  if (!suppressions.some(({ text }) => namesCode(text))) return;
 
   let unsuppressed = source;
   for (const { comment } of suppressions) {

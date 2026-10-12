@@ -74,4 +74,23 @@ describe("fixes to QuickAdd #2224", () => {
       check("<script>export let x;</script><!-- svelte-ignore a11y_autofocus --><p>{x}</p>"),
     ).toEqual([unused("a11y_autofocus", 31)]);
   });
+
+  it("reports a svelte-ignore without a code", () => {
+    expect(
+      check("<!-- svelte-ignore --><p>X</p>\n<!--svelte-ignore (no reason) --><p>Y</p>"),
+    ).toEqual([
+      {
+        line: 1,
+        column: 1,
+        rule: "no-unused-svelte-ignore",
+        message: "Name the warning code this svelte-ignore suppresses.",
+      },
+      {
+        line: 2,
+        column: 1,
+        rule: "no-unused-svelte-ignore",
+        message: "Name the warning code this svelte-ignore suppresses.",
+      },
+    ]);
+  });
 });
