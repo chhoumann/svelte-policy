@@ -6,6 +6,7 @@ import { coveredByEarlierBranch } from "./conditions";
 import type { Policy } from "./config";
 import { rules, selectorRuleIds, type RuleId, type SelectorRuleId } from "./rules";
 import { buildScopes, isReference, isTypeOnly, type Scope, type Scopes } from "./scope";
+import { replacements } from "./svelte-codes";
 
 export interface Diagnostic {
   readonly filename: string;
@@ -77,6 +78,14 @@ function suppressedCodes(text: string, runes: boolean): string[] {
     if (!comma) break;
   }
   return codes;
+}
+
+/**
+ * The warning codes a code named in a svelte-ignore comment suppresses: in runes mode only that
+ * exact code, otherwise also its Svelte 5 replacement.
+ */
+function suppressedWarnings(code: string, runes: boolean): readonly string[] {
+  return runes ? [code] : [code, replacements.get(code) ?? code.replaceAll("-", "_")];
 }
 
 /** Either mode reads at least one code from a comment with at least one word. */
@@ -152,11 +161,13 @@ function checkIgnores(root: AST.Root, source: string, filename: string, report: 
     if (isCompileError(error)) return;
     throw error;
   }
+  const { runes } = result.metadata;
   for (const { comment, text, target } of suppressions) {
-    for (const code of suppressedCodes(text, result.metadata.runes)) {
+    for (const code of suppressedCodes(text, runes)) {
+      const suppressed = suppressedWarnings(code, runes);
       const warned = result.warnings.some(
         (warning) =>
-          warning.code === code.replaceAll("-", "_") &&
+          suppressed.includes(warning.code) &&
           target !== undefined &&
           warning.start !== undefined &&
           warning.start.character >= target.start &&

@@ -139,6 +139,24 @@ describe("fixes to QuickAdd #2224", () => {
         unused("focus"),
       ]);
     });
+
+    it("honors Svelte 4 codes in legacy mode", () => {
+      expect(
+        check("<script>\n// svelte-ignore unused-export-let\nexport let unused;</script>"),
+      ).toEqual([]);
+      expect(check('<!-- svelte-ignore avoid-is --><div is="my-el"></div>')).toEqual([]);
+      expect(
+        check("<div><!-- svelte-ignore a11y-structure --><figcaption>X</figcaption></div>"),
+      ).toEqual([]);
+    });
+
+    it("honors only exact codes in runes mode", () => {
+      expect(
+        check(
+          "<script>let n = $state(0);</script><!-- svelte-ignore a11y-autofocus --><input autofocus value={n} />",
+        ),
+      ).toEqual([unused("a11y-autofocus", 36)]);
+    });
   });
 
   it("reports an object literal in an attribute value with more than one part", () => {
