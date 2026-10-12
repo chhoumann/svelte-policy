@@ -252,6 +252,10 @@ describe("fixes to QuickAdd #2224", () => {
         "a const shadowed by a parameter",
         "<script>const handler = 42;</script>{#snippet row(handler)}<button onclick={handler}>X</button>{/snippet}",
       ],
+      [
+        "a let: name on a slotted element",
+        '<script>const handler = 42;</script><Widget><button slot="default" let:handler onclick={handler}>X</button></Widget>',
+      ],
       ["a component prop", "<Widget onclick={42} />"],
       ["an attribute with text around the value", '<button onclick="x {42}">X</button>'],
       ["a forwarded on: directive", "<button on:click>X</button>"],

@@ -76,6 +76,12 @@ function isFunction(node: AST.SvelteNode | undefined): node is FunctionNode {
   );
 }
 
+function isComponent(
+  node: AST.SvelteNode,
+): node is AST.Component | AST.SvelteComponent | AST.SvelteSelf {
+  return node.type === "Component" || node.type === "SvelteComponent" || node.type === "SvelteSelf";
+}
+
 /**
  * Records the scope every node of the component is resolved in. Every declaration is made in
  * this pass, so a later lookup sees hoisted names. The module script's scope is the parent of
@@ -106,17 +112,25 @@ export function buildScopes(root: AST.Root): Scopes {
     {
       _(node, { state, next }) {
         scopes.set(node, state.scope);
-        // `let:` directives bind names in the element's children only.
+        let scope: Scope | undefined;
         if ("attributes" in node && "fragment" in node) {
           for (const attribute of node.attributes) {
             if (attribute.type !== "LetDirective") continue;
-            const scope = letScopes.get(node.fragment) ?? state.scope.child();
+            scope ??= state.scope.child();
             if (attribute.expression) declare(scope, attribute.expression, { kind: "template" });
             else scope.declare(attribute.name, { kind: "template" });
-            letScopes.set(node.fragment, scope);
           }
         }
-        next();
+        // A component's `let:` names belong to its default slot, so they reach only its
+        // children. An element's reach its own attributes too.
+        if (scope === undefined) {
+          next();
+        } else if (isComponent(node)) {
+          letScopes.set(node.fragment, scope);
+          next();
+        } else {
+          next({ scope });
+        }
       },
       Root(node, { visit }) {
         if (node.module) visit(node.module, { scope: module });
