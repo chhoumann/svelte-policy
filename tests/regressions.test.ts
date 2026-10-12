@@ -93,4 +93,28 @@ describe("fixes to QuickAdd #2224", () => {
       },
     ]);
   });
+
+  it("checks svelte-ignore comments in scripts and template expressions", () => {
+    expect(
+      check(
+        [
+          "<script>",
+          "let n = $state(0);",
+          "// svelte-ignore state_referenced_locally",
+          "const copy = n;",
+          "/* svelte-ignore state_referenced_locally */ const other = 1;",
+          "const last = 2; // svelte-ignore state_referenced_locally",
+          "</script>",
+          "<button onclick={() => {",
+          "  // svelte-ignore state_referenced_locally",
+          "  console.warn(n);",
+          "}}>{copy}{other}{last}</button>",
+        ].join("\n"),
+      ),
+    ).toEqual([
+      unused("state_referenced_locally", 1, 5),
+      unused("state_referenced_locally", 17, 6),
+      unused("state_referenced_locally", 3, 9),
+    ]);
+  });
 });

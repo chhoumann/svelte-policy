@@ -89,9 +89,13 @@ interface Suppression {
  */
 function checkIgnores(root: AST.Root, source: string, filename: string, report: Reporter): void {
   const suppressions: Suppression[] = [];
+  const commented = new Map<number, Range>();
   walk<AST.SvelteNode, null>(root, null, {
     StyleSheet() {},
     _(node, { path, next }) {
+      if ("leadingComments" in node) {
+        for (const comment of node.leadingComments ?? []) commented.set(comment.start, node);
+      }
       const parent = path.at(-1);
       if (
         node.type === "Comment" &&
@@ -108,6 +112,11 @@ function checkIgnores(root: AST.Root, source: string, filename: string, report: 
       next();
     },
   });
+  for (const comment of root.comments) {
+    if (suppressionPrefix.test(comment.value)) {
+      suppressions.push({ comment, text: comment.value, target: commented.get(comment.start) });
+    }
+  }
 
   for (const { comment, text } of suppressions) {
     if (!namesCode(text)) {
