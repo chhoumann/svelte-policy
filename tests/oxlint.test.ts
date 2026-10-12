@@ -1,9 +1,9 @@
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { expect, it } from "vite-plus/test";
+import { expect, it, onTestFinished } from "vite-plus/test";
 import { checkSvelte } from "../src/index";
 import { contexts, forbidden, permitted, quickadd } from "./quickadd";
 
@@ -22,6 +22,7 @@ function lint(files: Record<string, string>): {
   diagnostics: OxlintDiagnostic[];
 } {
   const workspace = mkdtempSync(join(tmpdir(), "svelte-policy-oxlint-"));
+  onTestFinished(() => rmSync(workspace, { recursive: true, force: true }));
   mkdirSync(join(workspace, "node_modules"));
   symlinkSync(root, join(workspace, "node_modules/svelte-policy"), "dir");
   for (const [path, content] of Object.entries(files)) {
