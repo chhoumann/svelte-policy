@@ -1,5 +1,6 @@
 import type {
   ArrowFunctionExpression,
+  Expression,
   FunctionDeclaration,
   FunctionExpression,
   Identifier,
@@ -9,16 +10,18 @@ import type {
 import type { AST } from "svelte/compiler";
 import { walk } from "zimmerframe";
 
-/** How a name was declared. */
-export interface Binding {
-  readonly kind:
-    | VariableDeclaration["kind"]
-    | "function"
-    | "class"
-    | "import"
-    | "parameter"
-    | "template";
-}
+/** How a name was declared. A `const` keeps its initializer when it binds the name directly. */
+export type Binding =
+  | { readonly kind: "const"; readonly init: Expression | null }
+  | {
+      readonly kind:
+        | Exclude<VariableDeclaration["kind"], "const">
+        | "function"
+        | "class"
+        | "import"
+        | "parameter"
+        | "template";
+    };
 
 export class Scope {
   readonly #bindings = new Map<string, Binding>();
@@ -45,6 +48,12 @@ export class Scope {
   /** The scope that declares `name`, or undefined when `name` is a global. */
   owner(name: string): Scope | undefined {
     return this.#bindings.has(name) ? this : this.parent?.owner(name);
+  }
+
+  /** The binding `name` resolves to, or undefined when `name` is a global. */
+  lookup(name: string): Binding | undefined {
+    const owner = this.owner(name);
+    return owner && owner.#bindings.get(name);
   }
 }
 
@@ -127,6 +136,9 @@ export function buildScopes(root: AST.Root): Scopes {
         for (const declarator of node.declarations) {
           if (node.kind === "var") {
             for (const name of patternNames(declarator.id)) state.scope.declareVar(name);
+          } else if (node.kind === "const") {
+            const init = declarator.id.type === "Identifier" ? (declarator.init ?? null) : null;
+            declare(state.scope, declarator.id, { kind: "const", init });
           } else {
             declare(state.scope, declarator.id, { kind: node.kind });
           }

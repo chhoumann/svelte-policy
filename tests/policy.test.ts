@@ -21,6 +21,7 @@ const violations: Record<Exclude<RuleId, "restricted-syntax">, string> = {
   "no-dupe-directives": "<div use:action use:action></div>",
   "no-dom-manipulating":
     "<script>let el; function clear() { el.remove(); }</script><div bind:this={el}></div>",
+  "no-not-function-handler": "<button onclick={42}>X</button>",
   "no-console": "<button onclick={() => console.log('X')}>X</button>",
   "no-new-func": "<button onclick={() => new Function('return 1')()}>X</button>",
   "no-implied-eval": "<button onclick={() => setTimeout('alert(1)', 10)}>X</button>",
@@ -42,6 +43,7 @@ const defaults: Record<keyof typeof violations, "off" | "warning" | "error"> = {
   "no-raw-special-elements": "error",
   "no-dupe-directives": "error",
   "no-dom-manipulating": "error",
+  "no-not-function-handler": "error",
   "no-console": "error",
   "no-new-func": "error",
   "no-implied-eval": "error",

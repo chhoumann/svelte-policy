@@ -163,4 +163,68 @@ describe("fixes to QuickAdd #2224", () => {
       rulesOf("<button onclick={() => window[`set${'Timeout'}`]('alert(1)', 1)}>X</button>"),
     ).toEqual([]);
   });
+
+  describe("no-not-function-handler", () => {
+    it.each([
+      ["a number attribute", "<button onclick={42}>X</button>"],
+      ["a quoted string attribute", "<button onclick=\"{'alert(1)'}\">X</button>"],
+      ["a template literal", "<button onclick={`alert(1)`}>X</button>"],
+      ["an object", "<button onclick={{handleEvent() {}}}>X</button>"],
+      ["an array", "<button onclick={[]}>X</button>"],
+      ["a class", "<button onclick={class {}}>X</button>"],
+      ["a boolean", "<svelte:window onkeydown={true} />"],
+      ["a regex", "<svelte:document onclick={/x/} />"],
+      ["a bigint", "<svelte:body onclick={1n} />"],
+      ["an on: directive", "<button on:click={'handler'}>X</button>"],
+      ["a const", "<script>const handler = 42;</script><button onclick={handler}>X</button>"],
+      [
+        "a const of a const",
+        "<script>const value = {}; const handler = value;</script><button on:click={handler}>X</button>",
+      ],
+      [
+        "a module const",
+        "<script module>const handler = 'x';</script><script>let n = $state(0);</script><button onclick={handler}>{n}</button>",
+      ],
+      ["an @const", "{#if ready}{@const handler = 42}<button onclick={handler}>X</button>{/if}"],
+    ])("reports %s", (_name, source) => {
+      expect(rulesOf(source)).toEqual(["no-not-function-handler"]);
+    });
+
+    it.each([
+      ["a function", "<button onclick={() => {}}>X</button>"],
+      ["null", "<button onclick={null}>X</button>"],
+      ["undefined", "<button onclick={undefined}>X</button>"],
+      ["a let", "<script>let handler = 42;</script><button onclick={handler}>X</button>"],
+      [
+        "a destructured const",
+        "<script>const { handler } = { handler: 42 };</script><button onclick={handler}>X</button>",
+      ],
+      [
+        "a const shadowed by a parameter",
+        "<script>const handler = 42;</script>{#snippet row(handler)}<button onclick={handler}>X</button>{/snippet}",
+      ],
+      ["a component prop", "<Widget onclick={42} />"],
+      ["an attribute with text around the value", '<button onclick="x {42}">X</button>'],
+      ["a forwarded on: directive", "<button on:click>X</button>"],
+      [
+        "consts that refer to each other",
+        "<script>const a = b; const b = a;</script><button onclick={a}>X</button>",
+      ],
+    ])("accepts %s", (_name, source) => {
+      expect(rulesOf(source)).toEqual([]);
+    });
+
+    it("reports at the handler expression with the rule's message", () => {
+      expect(
+        check("<script>const handler = 42;</script>\n<button onclick={handler}>X</button>"),
+      ).toEqual([
+        {
+          line: 2,
+          column: 18,
+          rule: "no-not-function-handler",
+          message: "Pass a function as the event handler.",
+        },
+      ]);
+    });
+  });
 });

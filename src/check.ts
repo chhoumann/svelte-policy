@@ -235,6 +235,14 @@ const objectLiterals: ReadonlySet<string> = new Set([
   "FunctionExpression",
   "ClassExpression",
 ]);
+/** Elements on which Svelte treats an `on*` attribute as an event handler. */
+const eventTargets: ReadonlySet<string> = new Set([
+  "RegularElement",
+  "SvelteElement",
+  "SvelteWindow",
+  "SvelteDocument",
+  "SvelteBody",
+]);
 
 interface DomUse {
   readonly node: MemberExpression;
@@ -389,6 +397,23 @@ function checkElement(
       bound.set(name, owners);
     }
 
+    if (
+      attribute.type === "Attribute" &&
+      eventTargets.has(element.type) &&
+      attribute.name.startsWith("on")
+    ) {
+      const value =
+        Array.isArray(attribute.value) && attribute.value.length === 1
+          ? attribute.value[0]
+          : attribute.value;
+      if (value !== true && !Array.isArray(value) && value?.type === "ExpressionTag") {
+        checkHandler(value.expression, scopes, report);
+      }
+    }
+    if (attribute.type === "OnDirective" && attribute.expression) {
+      checkHandler(attribute.expression, scopes, report);
+    }
+
     if (attribute.type === "OnDirective" || attribute.type === "UseDirective") {
       const modifiers =
         attribute.type === "OnDirective" ? attribute.modifiers.toSorted().join(",") : "";
@@ -407,6 +432,27 @@ function fingerprint(node: Expression | null): string {
     if (key === "start" || key === "end" || key === "loc" || key === "raw") return undefined;
     return typeof value === "bigint" ? { bigint: value.toString() } : value;
   });
+}
+
+/** Report a handler that is not a function, following a name through `const` initializers. */
+function checkHandler(expression: Expression, scopes: Scopes, report: Reporter): void {
+  let value = expression;
+  const seen = new Set<Expression>();
+  while (value.type === "Identifier" && !seen.has(value)) {
+    seen.add(value);
+    const binding = scopes.of(value).lookup(value.name);
+    if (binding?.kind !== "const" || binding.init === null) break;
+    value = binding.init;
+  }
+  const notFunction =
+    value.type === "ObjectExpression" ||
+    value.type === "ArrayExpression" ||
+    value.type === "ClassExpression" ||
+    value.type === "TemplateLiteral" ||
+    (value.type === "Literal" && ("regex" in value || "bigint" in value || value.value !== null));
+  if (notFunction) {
+    report(expression, "no-not-function-handler", "Pass a function as the event handler.");
+  }
 }
 
 /** Whether some reference in the key resolves to the each block's own item or index. */

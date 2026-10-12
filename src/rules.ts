@@ -72,6 +72,7 @@ export const rules = {
   "no-raw-special-elements": { severity: "error" },
   "no-dupe-directives": { severity: "error" },
   "no-dom-manipulating": { severity: "error" },
+  "no-not-function-handler": { severity: "error" },
   "no-console": { severity: "error" },
   "no-new-func": { severity: "error" },
   "no-implied-eval": { severity: "error" },
