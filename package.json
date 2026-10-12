@@ -17,6 +17,9 @@
     "type": "git",
     "url": "git+https://github.com/chhoumann/svelte-policy.git"
   },
+  "bin": {
+    "svelte-policy": "./dist/cli.mjs"
+  },
   "files": [
     "dist"
   ],

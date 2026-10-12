@@ -9,7 +9,7 @@ export default defineConfig({
     dts: {
       resolver: "tsc",
     },
-    entry: ["src/index.ts", "src/oxlint.ts"],
+    entry: ["src/index.ts", "src/oxlint.ts", "src/cli.ts"],
     exports: false,
     fixedExtension: true,
     format: ["esm"],
