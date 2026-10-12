@@ -1,7 +1,15 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import esquery from "esquery";
-import { isRuleId, rules, type RuleId, type Selector, type Severity } from "./rules";
+import esquery, { type Query } from "esquery";
+import {
+  isRuleId,
+  rules,
+  selectorRuleIds,
+  type RuleId,
+  type Selector,
+  type SelectorRuleId,
+  type Severity,
+} from "./rules";
 
 /** The shape of svelte-policy.json. */
 export interface Config {
@@ -14,14 +22,33 @@ export interface Config {
   readonly restrictedSyntax?: readonly Selector[];
 }
 
+/** A parsed selector of a selector rule, with the message reported where it matches. */
+export interface RuleQuery {
+  readonly rule: SelectorRuleId;
+  readonly message: string;
+  readonly query: Query;
+}
+
 /** A validated config with every default filled in. */
 export interface Policy {
   readonly severity: (rule: RuleId) => Severity;
   readonly consoleMessage: string;
+  /** The consumer's selectors, which the oxlint plugin reports under restricted-syntax. */
   readonly restrictedSyntax: readonly Selector[];
+  /** The selectors of every selector rule the policy turns on, the consumer's first. */
+  readonly queries: readonly RuleQuery[];
 }
 
 const configFileName = "svelte-policy.json";
+
+/** The built-in selectors, parsed once. */
+const builtInQueries: readonly RuleQuery[] = selectorRuleIds.flatMap((rule) =>
+  rules[rule].selectors.map(({ selector, message }) => ({
+    rule,
+    message,
+    query: esquery.parse(selector),
+  })),
+);
 
 const severities: readonly unknown[] = ["off", "warn", "error"] satisfies Severity[];
 
@@ -94,18 +121,22 @@ export function resolvePolicy(config: unknown, source: string): Policy {
         `restrictedSyntax[${index}] must be { "selector", "message" } with non-empty strings.`,
       );
     }
+    return { selector: entry.selector, message: entry.message };
+  });
+  const consumerQueries = selectors.map(({ selector, message }, index): RuleQuery => {
     try {
-      esquery.parse(entry.selector);
+      return { rule: "restricted-syntax", message, query: esquery.parse(selector) };
     } catch (error) {
       throw invalid(`restrictedSyntax[${index}].selector does not parse: ${messageOf(error)}`);
     }
-    return { selector: entry.selector, message: entry.message };
   });
 
+  const severity = (rule: RuleId) => overrides.get(rule) ?? rules[rule].severity;
   return {
-    severity: (rule) => overrides.get(rule) ?? rules[rule].severity,
+    severity,
     consoleMessage,
     restrictedSyntax: selectors,
+    queries: [...consumerQueries, ...builtInQueries].filter(({ rule }) => severity(rule) !== "off"),
   };
 }
 

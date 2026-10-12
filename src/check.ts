@@ -1,10 +1,10 @@
-import esquery, { type Selector as Query } from "esquery";
+import esquery from "esquery";
 import type { Expression, MemberExpression, Node, Super } from "estree";
 import { compile, parse, type AST, type CompileError } from "svelte/compiler";
 import { walk } from "zimmerframe";
 import { coveredByEarlierBranch } from "./conditions";
 import type { Policy } from "./config";
-import { rules, selectorRuleIds, type RuleId, type SelectorRuleId } from "./rules";
+import type { RuleId } from "./rules";
 import { buildScopes, isReference, isTypeOnly, type Scope, type Scopes } from "./scope";
 import { replacements, runtimeWarnings } from "./svelte-codes";
 
@@ -183,30 +183,6 @@ function checkIgnores(root: AST.Root, source: string, filename: string, report: 
   }
 }
 
-interface CompiledSelector {
-  readonly rule: SelectorRuleId;
-  readonly message: string;
-  readonly query: Query;
-}
-
-const compiledSelectors = new WeakMap<Policy, readonly CompiledSelector[]>();
-
-/** The selectors of every selector rule the policy turns on, the consumer's first. */
-function activeSelectors(policy: Policy): readonly CompiledSelector[] {
-  let selectors = compiledSelectors.get(policy);
-  if (selectors === undefined) {
-    selectors = selectorRuleIds
-      .filter((rule) => policy.severity(rule) !== "off")
-      .flatMap((rule) =>
-        (rule === "restricted-syntax" ? policy.restrictedSyntax : rules[rule].selectors).map(
-          ({ selector, message }) => ({ rule, message, query: esquery.parse(selector) }),
-        ),
-      );
-    compiledSelectors.set(policy, selectors);
-  }
-  return selectors;
-}
-
 const domMethods: ReadonlySet<string> = new Set([
   "appendChild",
   "insertBefore",
@@ -266,7 +242,6 @@ interface DomUse {
 /** One walk over scripts and template; every rule except no-unused-svelte-ignore reports from here. */
 function checkTree(root: AST.Root, policy: Policy, report: Reporter): void {
   const scopes = buildScopes(root);
-  const selectors = activeSelectors(policy);
   const bound = new Map<string, Set<Scope | undefined>>();
   const domUses: DomUse[] = [];
 
@@ -274,9 +249,9 @@ function checkTree(root: AST.Root, policy: Policy, report: Reporter): void {
     StyleSheet() {},
     _(node, { path, next }) {
       // A fragment has no position to report at.
-      if (selectors.length > 0 && "start" in node) {
+      if (policy.queries.length > 0 && "start" in node) {
         const ancestry = path.toReversed();
-        for (const { rule, message, query } of selectors) {
+        for (const { rule, message, query } of policy.queries) {
           if (esquery.matches(node, query, ancestry)) report(node, rule, message);
         }
       }

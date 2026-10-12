@@ -1,5 +1,5 @@
 declare module "esquery" {
-  export interface Selector {
+  export interface Query {
     readonly type: string;
   }
 
@@ -9,8 +9,8 @@ declare module "esquery" {
   }
 
   const esquery: {
-    parse(selector: string): Selector;
-    matches(node: Node, selector: Selector, ancestry?: readonly Node[]): boolean;
+    parse(selector: string): Query;
+    matches(node: Node, query: Query, ancestry?: readonly Node[]): boolean;
   };
   export default esquery;
 }

@@ -1,7 +1,8 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vite-plus/test";
+import esquery from "esquery";
+import { describe, expect, it, vi } from "vite-plus/test";
 import { checkSvelte, type Config } from "../src/index";
 import type { RuleId } from "../src/rules";
 
@@ -106,6 +107,15 @@ describe("restrictedSyntax", () => {
       [1, 59, "restricted-syntax", "Use the analytics helper."],
       [1, 59, "restricted-syntax", "Tracking needs consent."],
     ]);
+  });
+
+  it("parses each selector once per call with a config passed in", () => {
+    const parse = vi.spyOn(esquery, "parse");
+    checkSvelte(source, "Component.svelte", restricted);
+    expect(parse.mock.calls.map(([selector]) => selector)).toEqual(
+      restricted.restrictedSyntax?.map(({ selector }) => selector),
+    );
+    parse.mockRestore();
   });
 
   it("follows the restricted-syntax severity", () => {
