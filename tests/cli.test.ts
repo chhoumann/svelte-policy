@@ -1,14 +1,15 @@
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { expect, it } from "vite-plus/test";
+import { expect, it, onTestFinished } from "vite-plus/test";
 
 const cli = fileURLToPath(new URL("../dist/cli.mjs", import.meta.url));
 
 function project(files: Record<string, string>): string {
   const root = realpathSync(mkdtempSync(join(tmpdir(), "svelte-policy-cli-")));
+  onTestFinished(() => rmSync(root, { recursive: true, force: true }));
   for (const [path, content] of Object.entries(files)) {
     mkdirSync(join(root, path, ".."), { recursive: true });
     writeFileSync(join(root, path), content);

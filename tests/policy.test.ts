@@ -1,8 +1,8 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import esquery from "esquery";
-import { describe, expect, it, vi } from "vite-plus/test";
+import { describe, expect, it, onTestFinished, vi } from "vite-plus/test";
 import { checkSvelte, type Config } from "../src/index";
 import type { RuleId } from "../src/rules";
 
@@ -208,6 +208,7 @@ describe("svelte-policy.json discovery", () => {
   const consoleLog = violations["no-console"];
   const project = (files: Record<string, string>) => {
     const root = mkdtempSync(join(tmpdir(), "svelte-policy-discovery-"));
+    onTestFinished(() => rmSync(root, { recursive: true, force: true }));
     for (const [path, content] of Object.entries(files)) {
       mkdirSync(join(root, path, ".."), { recursive: true });
       writeFileSync(join(root, path), content);
