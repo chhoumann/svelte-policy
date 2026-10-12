@@ -251,3 +251,4 @@ Add the rule to the existing `src/**/*.ts` override rather than a new one. Oxlin
 - `no-dom-manipulating` follows the name bound with `bind:this`, not aliases of it.
 - A `let:` directive on a component also scopes children that fill a named slot, though Svelte gives those children only their own slot's names. `no-not-function-handler` can miss a handler there that names an outer `const`.
 - `valid-each-key` checks that the key uses the item or index. It does not prove that keys are unique.
+- `no-dupe-else-if-blocks` and `no-dupe-directives` do not see through TypeScript, so they miss duplicates that differ only in a type annotation or assertion.

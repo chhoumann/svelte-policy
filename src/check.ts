@@ -273,7 +273,10 @@ function checkTree(root: AST.Root, policy: Policy, report: Reporter): void {
           }
           break;
         case "ExpressionTag":
-          if (isInterpolated(path.at(-1)) && objectLiterals.has(node.expression.type)) {
+          if (
+            isInterpolated(path.at(-1)) &&
+            objectLiterals.has(withoutTypeScript(node.expression).type)
+          ) {
             report(
               node,
               "no-object-in-text-mustaches",
@@ -291,44 +294,43 @@ function checkTree(root: AST.Root, policy: Policy, report: Reporter): void {
           }
           break;
         case "MemberExpression": {
-          if (node.object.type !== "Identifier") break;
+          const object = withoutTypeScript(node.object);
+          if (object.type !== "Identifier") break;
           const name = propertyName(node);
-          const owner = scopes.of(node).owner(node.object.name);
+          const owner = scopes.of(object).owner(object.name);
           if (
-            node.object.name === "console" &&
+            object.name === "console" &&
             owner === undefined &&
             name !== "warn" &&
             name !== "error"
           ) {
             report(node, "no-console", policy.consoleMessage);
           }
-          const parent = path.at(-1);
-          const [use, callee] =
-            parent?.type === "ChainExpression" ? [path.at(-2), parent] : [parent, node];
+          const { use, used } = userOf(node, path);
           if (
             name !== undefined &&
-            ((use?.type === "CallExpression" && use.callee === callee && domMethods.has(name)) ||
+            ((use?.type === "CallExpression" && use.callee === used && domMethods.has(name)) ||
               (use?.type === "AssignmentExpression" &&
-                use.left === node &&
+                use.left === used &&
                 domProperties.has(name)))
           ) {
-            domUses.push({ node, name: node.object.name, owner });
+            domUses.push({ node, name: object.name, owner });
           }
           break;
         }
         case "CallExpression":
         case "NewExpression": {
-          const scope = scopes.of(node);
+          const callee = withoutTypeScript(node.callee);
           if (
-            node.callee.type === "Identifier" &&
-            node.callee.name === "Function" &&
-            !scope.owner("Function")
+            callee.type === "Identifier" &&
+            callee.name === "Function" &&
+            !scopes.of(callee).owner("Function")
           ) {
             report(node, "no-new-func", "Do not construct code from strings.");
           }
           if (
             node.type === "CallExpression" &&
-            isGlobalTimer(node.callee, scope) &&
+            isGlobalTimer(callee, scopes) &&
             isCodeString(node.arguments[0])
           ) {
             report(node, "no-implied-eval", "Pass a callback instead of a code string.");
@@ -365,13 +367,14 @@ function checkElement(
     if (
       attribute.type === "BindDirective" &&
       attribute.name === "this" &&
-      attribute.expression.type === "Identifier" &&
       (element.type === "RegularElement" || element.type === "SvelteElement")
     ) {
-      const { name } = attribute.expression;
-      const owners = bound.get(name) ?? new Set();
-      owners.add(scopes.of(attribute.expression).owner(name));
-      bound.set(name, owners);
+      const target = withoutTypeScript(attribute.expression);
+      if (target.type === "Identifier") {
+        const owners = bound.get(target.name) ?? new Set();
+        owners.add(scopes.of(target).owner(target.name));
+        bound.set(target.name, owners);
+      }
     }
 
     if (
@@ -432,18 +435,38 @@ function checkHandler(expression: Expression, scopes: Scopes, report: Reporter):
   }
 }
 
-/** The value inside TypeScript's `as`, `satisfies`, `!`, and `<T>` wrappers. */
-function withoutTypeScript(expression: Expression): Expression {
-  let value = expression;
-  while (
-    value.type === "TSAsExpression" ||
-    value.type === "TSSatisfiesExpression" ||
-    value.type === "TSNonNullExpression" ||
-    value.type === "TSTypeAssertion"
-  ) {
-    value = value.expression;
-  }
+type TypeScriptValue = Extract<Expression, { type: `TS${string}` }>;
+
+/** TypeScript's `as`, `satisfies`, `!`, and `<T>` wrappers, which Svelte strips from a value. */
+function isTypeScriptValue(node: { readonly type: string }): node is TypeScriptValue {
+  return (
+    node.type === "TSAsExpression" ||
+    node.type === "TSSatisfiesExpression" ||
+    node.type === "TSNonNullExpression" ||
+    node.type === "TSTypeAssertion"
+  );
+}
+
+/** The value inside any TypeScript wrappers. */
+function withoutTypeScript<Value extends Node>(node: Value): Value | Expression {
+  let value: Value | Expression = node;
+  while (isTypeScriptValue(value)) value = value.expression;
   return value;
+}
+
+/** The node that uses `node`'s value, and its child holding it, past `?.` and TypeScript wrappers. */
+function userOf(
+  node: AST.SvelteNode,
+  path: readonly AST.SvelteNode[],
+): { readonly use: AST.SvelteNode | undefined; readonly used: AST.SvelteNode } {
+  let used = node;
+  for (const parent of path.toReversed()) {
+    if (parent.type !== "ChainExpression" && !isTypeScriptValue(parent)) {
+      return { use: parent, used };
+    }
+    used = parent;
+  }
+  return { use: undefined, used };
 }
 
 /** Whether some reference in the key resolves to the each block's own item or index. */
@@ -476,7 +499,7 @@ function isInterpolated(parent: AST.SvelteNode | undefined): boolean {
 
 /** The static name of `a.b`, `a["b"]`, or ``a[`b`]``; undefined for anything computed. */
 function propertyName(node: MemberExpression): string | undefined {
-  const { property } = node;
+  const property = withoutTypeScript(node.property);
   if (!node.computed) return property.type === "Identifier" ? property.name : undefined;
   if (property.type === "Literal" && typeof property.value === "string") return property.value;
   if (property.type === "TemplateLiteral" && property.expressions.length === 0) {
@@ -486,22 +509,26 @@ function propertyName(node: MemberExpression): string | undefined {
 }
 
 /** `setTimeout(...)` or `window.setTimeout(...)` on the global, not a shadowing binding. */
-function isGlobalTimer(callee: Expression | Super, scope: Scope): boolean {
+function isGlobalTimer(callee: Expression | Super, scopes: Scopes): boolean {
   if (callee.type === "Identifier") {
-    return timerFunctions.has(callee.name) && !scope.owner(callee.name);
+    return timerFunctions.has(callee.name) && !scopes.of(callee).owner(callee.name);
   }
-  if (callee.type !== "MemberExpression" || callee.object.type !== "Identifier") return false;
+  if (callee.type !== "MemberExpression") return false;
+  const object = withoutTypeScript(callee.object);
   const name = propertyName(callee);
   return (
-    globalObjects.has(callee.object.name) &&
-    !scope.owner(callee.object.name) &&
+    object.type === "Identifier" &&
+    globalObjects.has(object.name) &&
+    !scopes.of(object).owner(object.name) &&
     name !== undefined &&
     timerFunctions.has(name)
   );
 }
 
 function isCodeString(node: Node | undefined): boolean {
+  const value = node && withoutTypeScript(node);
   return (
-    node?.type === "TemplateLiteral" || (node?.type === "Literal" && typeof node.value === "string")
+    value?.type === "TemplateLiteral" ||
+    (value?.type === "Literal" && typeof value.value === "string")
   );
 }

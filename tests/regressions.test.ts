@@ -300,4 +300,125 @@ describe("fixes to QuickAdd #2224", () => {
       ]);
     });
   });
+
+  describe("sees through TypeScript wrappers, which Svelte strips", () => {
+    const ts = (script: string, markup = "") => `<script lang="ts">${script}</script>${markup}`;
+    const bound = (body: string, target = "el") =>
+      ts(`let el: HTMLElement; function clear() { ${body} }`, `<div bind:this={${target}}></div>`);
+
+    it.each([
+      [
+        "an object in a text mustache",
+        ts("", "<p>{{ a: 1 } as { a: number }}</p>"),
+        "no-object-in-text-mustaches",
+      ],
+      [
+        "an object in a multi-part attribute",
+        ts("", '<p title="x {({ a: 1 } satisfies { a: number })}">X</p>'),
+        "no-object-in-text-mustaches",
+      ],
+      ["a non-null console", ts('console!.log("x");'), "no-console"],
+      ["a cast console", ts('(console as Console).log("x");'), "no-console"],
+      [
+        "an asserted console in a handler",
+        ts("", '<button onclick={() => (<Console>console).info("x")}>X</button>'),
+        "no-console",
+      ],
+      ["a non-null bound element", bound("el!.replaceChildren();"), "no-dom-manipulating"],
+      ["a cast bound element", bound('(el as HTMLElement).innerHTML = "";'), "no-dom-manipulating"],
+      [
+        "a cast assignment target",
+        bound('(el.textContent as string) = "";'),
+        "no-dom-manipulating",
+      ],
+      ["a non-null method", bound("el.remove!();"), "no-dom-manipulating"],
+      ["a cast optional method", bound("(el?.remove as () => void)();"), "no-dom-manipulating"],
+      [
+        "a method name cast to its literal type",
+        bound('el["remove" as const]();'),
+        "no-dom-manipulating",
+      ],
+      [
+        "an element bound through an assertion",
+        bound("el.remove();", "el!"),
+        "no-dom-manipulating",
+      ],
+      ["a cast Function call", ts('(Function as FunctionConstructor)("return 1");'), "no-new-func"],
+      ["a cast Function constructor", ts('new (Function as any)("return 1");'), "no-new-func"],
+      ["a cast code string", ts('setTimeout("work()" as string, 1);'), "no-implied-eval"],
+      ["a cast timer", ts('(setTimeout as any)("work()");'), "no-implied-eval"],
+      ["a non-null global object", ts('window!.setTimeout("work()");'), "no-implied-eval"],
+      [
+        "a cast timer member",
+        ts('(window.setInterval as typeof setInterval)("work()");'),
+        "no-implied-eval",
+      ],
+      [
+        "a timer name cast to its literal type",
+        ts('globalThis["setTimeout" as const]("work()");'),
+        "no-implied-eval",
+      ],
+    ])("reports %s", (_name, source, rule) => {
+      expect(rulesOf(source)).toEqual([rule]);
+    });
+
+    it.each([
+      ["a cast number in a text mustache", ts("let n = 1;", "<p>{n as number}</p>")],
+      [
+        "a console parameter behind a cast",
+        ts('function log(console: Console) { (console as Console).log("x"); }'),
+      ],
+      ["a non-null console.warn", ts('console!.warn("x");')],
+      [
+        "an element parameter behind assertions",
+        ts(
+          'let el: HTMLElement; function clear(el: HTMLElement) { el!.remove(); (el.textContent as string) = ""; }',
+          "<div bind:this={el!}></div>",
+        ),
+      ],
+      ["reading a bound element's text", bound("return (el!.textContent as string).trim();")],
+      [
+        "a Function parameter behind a cast",
+        ts(
+          'function make(Function: FunctionConstructor) { (Function as FunctionConstructor)("return 1"); }',
+        ),
+      ],
+      [
+        "timer parameters behind assertions",
+        ts(
+          'function run(setTimeout: (code: string) => void, window: { setTimeout(code: string): void }) { (setTimeout as any)("work()"); window!.setTimeout("work()"); }',
+        ),
+      ],
+      ["a cast callback", ts("setTimeout((() => {}) as () => void, 1);")],
+    ])("accepts %s", (_name, source) => {
+      expect(rulesOf(source)).toEqual([]);
+    });
+
+    it("reports at the wrapped expression's own position", () => {
+      expect(
+        check(
+          '<script lang="ts">\n(console as Console).log("x");\nsetTimeout("work()" as string);\n</script>\n<p>{{} as object}</p>',
+        ),
+      ).toEqual([
+        {
+          line: 2,
+          column: 1,
+          rule: "no-console",
+          message: "Use console.warn or console.error instead of other console methods.",
+        },
+        {
+          line: 3,
+          column: 1,
+          rule: "no-implied-eval",
+          message: "Pass a callback instead of a code string.",
+        },
+        {
+          line: 5,
+          column: 4,
+          rule: "no-object-in-text-mustaches",
+          message: "Interpolate a display value instead of an object or function.",
+        },
+      ]);
+    });
+  });
 });
