@@ -82,7 +82,7 @@ A file with unknown keys, unknown rules, invalid severities, or a selector that 
 | `no-console`                  | error   |           | Console methods other than `console.warn` and `console.error`.                                                          |
 | `no-new-func`                 | error   |           | `Function(...)` and `new Function(...)`.                                                                                |
 | `no-implied-eval`             | error   |           | A string of code passed to `setTimeout`, `setInterval`, or `execScript`.                                                |
-| `no-unused-svelte-ignore`     | error   |           | A `svelte-ignore` comment, in markup or in a script, that names no code or suppresses no compiler warning.              |
+| `no-unused-svelte-ignore`     | error   |           | A `svelte-ignore` comment, in markup or in a script, that names no code or suppresses no warning.                       |
 
 The store ban and the runes requirement are off by default because legacy components and stores remain valid Svelte 5. Turn them on when every component uses runes.
 
