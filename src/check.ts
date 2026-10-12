@@ -113,8 +113,7 @@ function checkIgnores(root: AST.Root, source: string, filename: string, report: 
       ) {
         const siblings = parent.nodes.slice(parent.nodes.indexOf(node) + 1);
         const target = siblings.find(
-          (sibling) =>
-            sibling.type !== "Comment" && !(sibling.type === "Text" && !sibling.data.trim()),
+          (sibling) => sibling.type !== "Comment" && sibling.type !== "Text",
         );
         suppressions.push({ comment: node, text: node.data, target });
       }

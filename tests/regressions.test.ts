@@ -69,6 +69,13 @@ describe("fixes to QuickAdd #2224", () => {
     ]);
   });
 
+  it("applies a svelte-ignore to the next node past any text", () => {
+    expect(check("<!-- svelte-ignore a11y_autofocus -->Name: <input autofocus />")).toEqual([]);
+    expect(
+      check("<label><!-- svelte-ignore a11y_autofocus -->Name <input autofocus /></label>"),
+    ).toEqual([]);
+  });
+
   it("checks svelte-ignore comments in legacy components", () => {
     expect(
       check("<script>export let x;</script><!-- svelte-ignore a11y_autofocus --><p>{x}</p>"),
