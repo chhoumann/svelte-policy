@@ -3,6 +3,13 @@ import { checkSvelte } from "../src/index";
 
 const rulesOf = (source: string) =>
   checkSvelte(source, "Component.svelte", {}).map(({ rule }) => rule);
+const check = (source: string) =>
+  checkSvelte(source, "Component.svelte", {}).map(({ line, column, rule, message }) => ({
+    line,
+    column,
+    rule,
+    message,
+  }));
 
 describe("analysis", () => {
   it("compares else-if literals by type and value", () => {
@@ -38,5 +45,15 @@ describe("analysis", () => {
         '<script lang="ts">let items: { id: string }[] = [];</script>{#each items as item ((items.length as unknown as typeof item))}<p>X</p>{/each}',
       ),
     ).toEqual(["valid-each-key"]);
+  });
+});
+
+describe("fixes to QuickAdd #2224", () => {
+  it("reads dashed and comma-separated svelte-ignore codes as whole codes", () => {
+    expect(
+      check(
+        '<!-- svelte-ignore a11y-autofocus, a11y-positive-tabindex --><input autofocus tabindex="1" />',
+      ),
+    ).toEqual([]);
   });
 });

@@ -67,7 +67,7 @@ const suppressionPrefix = /^\s*svelte-ignore /;
 /** The codes a svelte-ignore comment names. Text from `(` on is a reason. */
 function suppressedCodes(text: string): string[] {
   const list = text.replace(suppressionPrefix, "").split("(")[0] ?? "";
-  return list.match(/[a-z][a-z_0-9]*/g) ?? [];
+  return list.match(/[\w$-]+/g) ?? [];
 }
 
 interface Suppression {
@@ -124,7 +124,7 @@ function checkIgnores(root: AST.Root, source: string, filename: string, report: 
     for (const code of suppressedCodes(text)) {
       const warned = result.warnings.some(
         (warning) =>
-          warning.code === code &&
+          warning.code === code.replaceAll("-", "_") &&
           target !== undefined &&
           warning.start !== undefined &&
           warning.start.character >= target.start &&
